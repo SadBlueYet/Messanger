@@ -10,7 +10,7 @@ class UsersDB:
     def __connection(self):
         self._conn = psycopg2.connect(user="postgres",
                                       password="admin",
-                                      host="192.168.0.158",
+                                      host="localhost",
                                       port="5432",
                                       database="users")
         self._cur = self._conn.cursor()

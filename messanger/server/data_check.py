@@ -1,4 +1,4 @@
-import pika
+import socket
 import threading
 import hashlib
 import phonenumbers
@@ -6,47 +6,52 @@ import json
 import re
 from database import UsersDB
 
-connections = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-channel = connections.channel()
 
+class Data:
+    def __init__(self):
+        self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.sock.bind(('192.168.56.1', 12345))
+        self.sock.listen()
+        self.client_socket = None
+        self.client_address = None
 
-def send(status_code: str):
-    channel.queue_declare(queue="send")
-    channel.basic_publish(exchange='',
-                          routing_key='send',
-                          body=status_code.encode("utf-8"))
+    def send(self, status_code: str):
+        try:
 
+            self.client_socket.sendall(status_code.encode())
+        except Exception as e:
+            print(e)
 
-def receive():
-    def callback( ch, method, properties, body):
-        check(body.decode())
+    def receive(self):
+        while True:
+            self.client_socket, self.client_address = self.sock.accept()
+            try:
+                # Обработка входящего соединения
+                print('Получено соединение от', self.client_address)
+                data = self.client_socket.recv(1024)
+                self.check(data.decode())
+            except Exception as e:
+                print(e)
 
-    channel.basic_consume(queue='check',
-                          on_message_callback=callback,
-                          auto_ack=True)
-    channel.start_consuming()
-
-
-def check(data):
-    user = UserCheck(data)
-
-    if not user.set_username():
-        send("0")
-        return
-    if user.is_registration:
-        if not user.check_password():
-            send("1")
+    def check(self, data):
+        user = UserCheck(data)
+        if not user.set_username():
+            self.send("0")
             return
-        if not user.set_telephone_number():
-            send("2")
-            return
-        user.add_user()
-    else:
-        if not user.checking_password_for_existence():
-            send("1")
-            return
-    send("Верификация прошла успешно")
-    print("Пользователь успешно зарегистрирован")
+        if user.is_registration:
+            if not user.check_password():
+                self.send("1")
+                return
+            if not user.set_telephone_number():
+                self.send("2")
+                return
+            user.add_user()
+        else:
+            if not user.checking_password_for_existence():
+                self.send("1")
+                return
+        self.send("Верификация прошла успешно")
+        print("Пользователь успешно зарегистрирован")
 
 
 class UserCheck:
@@ -138,9 +143,9 @@ def check_valid_telephone_number(telephone_number: str) -> bool:
 
 
 def main():
-    channel.queue_declare(queue="check")
+    data = Data()
 
-    receive()
+    data.receive()
     """channel.queue_declare(queue="second")
     threads = []
     threads.append(threading.Thread(target=send))
