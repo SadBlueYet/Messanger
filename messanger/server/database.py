@@ -7,6 +7,7 @@ class UsersDB:
         # self.__drop_table()
         self.__create_table()
 
+    # Connection with database
     def __connection(self):
         self._conn = psycopg2.connect(user="postgres",
                                       password="admin",
@@ -15,6 +16,7 @@ class UsersDB:
                                       database="users")
         self._cur = self._conn.cursor()
 
+    # Drop table if exists
     def __drop_table(self):
         self._cur.execute("DROP TABLE IF EXISTS users")
         self._conn.commit()
